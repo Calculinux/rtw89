@@ -115,7 +115,7 @@ static inline u16 ieee80211_get_sn(struct ieee80211_hdr *hdr)
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0) && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)) || \
     (LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)  && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)) || \
-    (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 70) && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+    (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 70))
 static inline void ieee80211_purge_tx_queue(struct ieee80211_hw *hw,
 					    struct sk_buff_head *skbs)
 {
@@ -124,6 +124,31 @@ static inline void ieee80211_purge_tx_queue(struct ieee80211_hw *hw,
 	while ((skb = __skb_dequeue(skbs)))
 		ieee80211_free_txskb(hw, skb);
 }
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
+static inline bool ieee80211_vif_is_mld(const struct ieee80211_vif *vif)
+{
+	return vif->valid_links != 0;
+}
+
+static inline u16 ieee80211_vif_usable_links(const struct ieee80211_vif *vif)
+{
+	return vif->valid_links;
+}
+
+/*
+ * Before 6.6 the station list is protected by local->sta_mtx, which mac80211
+ * may already hold when it calls into the driver. The iterators used with this
+ * only read or reset per-station counters, so the RCU walk is sufficient.
+ */
+#define ieee80211_iterate_stations_mtx ieee80211_iterate_stations_atomic
+
+#define RTW89_EHT_MCS_NSS_BW(p) (&(p)->rx_tx_mcs9_max_nss)
+#define RTW89_EHT_MCS_NSS_20MHZ(p) (&(p)->rx_tx_mcs7_max_nss)
+#else
+#define RTW89_EHT_MCS_NSS_BW(p) ((p)->rx_tx_max_nss)
+#define RTW89_EHT_MCS_NSS_20MHZ(p) ((p)->rx_tx_max_nss)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
@@ -232,11 +257,15 @@ static inline u64 roundup_u64(u64 x, u32 y)
 #endif
 #define RTW89_RADIOTAP_ROOM_HE (sizeof(struct ieee80211_radiotap_he) + \
 				sizeof(struct ieee80211_radiotap_he_mu))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 #define RTW89_RADIOTAP_ROOM_EHT \
 	(sizeof(struct ieee80211_radiotap_tlv) + \
 	 ALIGN(struct_size((struct ieee80211_radiotap_eht *)0, user_info, 1), 4) + \
 	 sizeof(struct ieee80211_radiotap_tlv) + \
 	 ALIGN(sizeof(struct ieee80211_radiotap_eht_usig), 4))
+#else
+#define RTW89_RADIOTAP_ROOM_EHT 0
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 #define RTW89_RADIOTAP_ROOM \
 	ALIGN(max3(RTW89_RADIOTAP_ROOM_VHT, RTW89_RADIOTAP_ROOM_HE, \

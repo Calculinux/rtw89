@@ -2,7 +2,9 @@
 /* Copyright(c) 2019-2020  Realtek Corporation
  */
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 #include <linux/hex.h>
+#endif
 #include <linux/vmalloc.h>
 
 #include "coex.h"
@@ -4073,12 +4075,14 @@ static int rtw89_sta_link_info_get_iter(struct rtw89_dev *rtwdev,
 			       status->he_gi <= NL80211_RATE_INFO_HE_GI_3_2 ?
 			       he_gi_str[status->he_gi] : "N/A");
 		break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	case RX_ENC_EHT:
 		p += scnprintf(p, end - p, "EHT %dSS MCS-%d GI:%s",
 			       status->nss, status->rate_idx,
 			       status->eht.gi < ARRAY_SIZE(eht_gi_str) ?
 			       eht_gi_str[status->eht.gi] : "N/A");
 		break;
+#endif
 	}
 	p += scnprintf(p, end - p, " BW:%u",
 		       rtw89_rate_info_bw_to_mhz(status->bw));

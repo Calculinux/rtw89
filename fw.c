@@ -4134,8 +4134,10 @@ int rtw89_fw_h2c_assoc_cmac_tbl_g7(struct rtw89_dev *rtwdev,
 		u16 punct = bss_conf->chanreq.oper.punctured;
 
 		h2c->w4 |= le32_encode_bits(~punct,
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 		h2c->w4 |= le32_encode_bits(~vif->bss_conf.eht_puncturing,
+#else
+		h2c->w4 |= le32_encode_bits(U16_MAX,
 #endif
 					    CCTLINFO_G7_W4_ACT_SUBCH_CBW);
 		h2c->m4 |= cpu_to_le32(CCTLINFO_G7_W4_ACT_SUBCH_CBW);
@@ -4261,8 +4263,10 @@ int rtw89_fw_h2c_assoc_cmac_tbl_be(struct rtw89_dev *rtwdev,
 		u16 punct = bss_conf->chanreq.oper.punctured;
 
 		h2c->w4 |= le32_encode_bits(~punct,
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 		h2c->w4 |= le32_encode_bits(~vif->bss_conf.eht_puncturing,
+#else
+		h2c->w4 |= le32_encode_bits(U16_MAX,
 #endif
 					    BE_CCTL_INFO_W4_ACT_SUBCH_CBW);
 		h2c->m4 |= cpu_to_le32(BE_CCTL_INFO_W4_ACT_SUBCH_CBW);

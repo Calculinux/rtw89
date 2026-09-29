@@ -127,7 +127,10 @@ endif
 obj-m += rtw89_usb_git.o
 rtw89_usb_git-y := usb.o
 
+ccflags-y += -include $(src)/compat.h
 ccflags-y += -Wno-compare-distinct-pointer-types
+ccflags-y += -Wno-error=address-of-packed-member -Wno-error=unused-variable
+ccflags-y += -Wno-error=unused-but-set-variable -Wno-error=unused-const-variable
 ccflags-y += -DCONFIG_RTW89_DEBUGMSG -DCONFIG_RTW89_DEBUGFS
 ccflags-y += -DCONFIG_RTW89_LEDS -DCONFIG_RTW89_LEDS_MC
 ccflags-y += -DGIT_COMMIT=$(shell git --git-dir=$(src)/.git rev-parse HEAD)

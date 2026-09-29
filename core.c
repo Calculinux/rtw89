@@ -2428,8 +2428,10 @@ static
 bool rtw89_check_rx_statu_gi_match(struct ieee80211_rx_status *status, u8 gi_ltf,
 				   bool eht)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	if (eht)
 		return status->eht.gi == gi_ltf;
+#endif
 
 	return status->he_gi == gi_ltf;
 }
@@ -3721,6 +3723,7 @@ static void rtw89_core_update_radiotap_he(struct rtw89_dev *rtwdev,
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 static const u8 rx_status_bw_to_radiotap_eht_usig[] = {
 	[RATE_INFO_BW_20] = IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_20MHZ,
 	[RATE_INFO_BW_5] = U8_MAX,
@@ -3790,6 +3793,7 @@ static void rtw89_core_update_radiotap_eht(struct rtw89_dev *rtwdev,
 		le32_encode_bits(1, IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW_KNOWN) |
 		le32_encode_bits(bw, IEEE80211_RADIOTAP_EHT_USIG_COMMON_BW);
 }
+#endif
 
 static void rtw89_core_update_radiotap(struct rtw89_dev *rtwdev,
 				       struct rtw89_rx_desc_info *desc_info,
@@ -3815,8 +3819,10 @@ static void rtw89_core_update_radiotap(struct rtw89_dev *rtwdev,
 	if (rx_status->encoding == RX_ENC_HE)
 #endif
 		rtw89_core_update_radiotap_he(rtwdev, desc_info, skb, rx_status, phy_ppdu);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	else if (rx_status->encoding == RX_ENC_EHT)
 		rtw89_core_update_radiotap_eht(rtwdev, skb, rx_status);
+#endif
 }
 
 static void rtw89_core_validate_rx_signal(struct ieee80211_rx_status *rx_status)
@@ -3860,7 +3866,12 @@ static void rtw89_core_update_rx_freq_from_ie(struct rtw89_dev *rtwdev,
 	/* The parsing code for both 2GHz and 5GHz bands is the same in this
 	 * function.
 	 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	chan = cfg80211_get_ies_channel_number(variable, ielen, NL80211_BAND_2GHZ);
+#else
+	chan = cfg80211_get_ies_channel_number(variable, ielen, NL80211_BAND_2GHZ,
+					       CFG80211_BSS_FTYPE_UNKNOWN);
+#endif
 	if (chan == -1)
 		return;
 
@@ -4465,19 +4476,27 @@ static void rtw89_core_update_rx_status(struct rtw89_dev *rtwdev,
 		rx_status->rate_idx = rtw89_get_data_mcs(rtwdev, data_rate);
 		rx_status->nss = rtw89_get_data_nss(rtwdev, data_rate) + 1;
 	} else if (data_rate_mode == DATA_RATE_MODE_EHT) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 		rx_status->encoding = RX_ENC_EHT;
 		rx_status->rate_idx = rtw89_get_data_mcs(rtwdev, data_rate);
-		rx_status->nss = rtw89_get_data_nss(rtwdev, data_rate) + 1;
 		eht = true;
+#else
+		/* mac80211 has no EHT RX encoding; report the closest HE rate */
+		rx_status->encoding = RX_ENC_HE;
+		rx_status->rate_idx = min_t(u8, rtw89_get_data_mcs(rtwdev, data_rate), 11);
+#endif
+		rx_status->nss = rtw89_get_data_nss(rtwdev, data_rate) + 1;
 	} else {
 		rtw89_warn(rtwdev, "invalid RX rate mode %d\n", data_rate_mode);
 	}
 
 	/* he_gi is used to match ppdu, so we always fill it. */
 	gi = rtw89_rxdesc_to_nl_he_eht_gi(rtwdev, desc_info->gi_ltf, true, eht);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
 	if (eht)
 		rx_status->eht.gi = gi;
 	else
+#endif
 		rx_status->he_gi = gi;
 	rx_status->flag |= RX_FLAG_MACTIME_START;
 	rx_status->mactime = desc_info->free_run_cnt;
