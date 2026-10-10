@@ -3,6 +3,8 @@
  */
 
 #include <linux/module.h>
+#include <linux/printk.h>
+#include <linux/string.h>
 #include <linux/usb.h>
 #include "rtw8851b.h"
 #include "reg.h"
@@ -27,8 +29,21 @@ static const struct rtw89_usb_info rtw8851b_usb_info = {
 	},
 };
 
+/*
+ * The 8851b rfkill configuration samples the WL_DISABLE input on the
+ * chip's GPIO9 pad, a wiring that exists on mini-PCIe 8851B cards, whose
+ * RFKILL button feeds that pad. 8851BU USB adapters (all of them, see the
+ * ID table) leave the pad unconnected, so the driver would arm a pinmux on
+ * a floating input and, once the radio stops running, poll it at 1 Hz; a
+ * low sample then reports a spurious hardware rfkill that shuts the radio
+ * down and only clears on the next probe. No rfkill switch exists on these
+ * adapters, so use a private copy of the 8851b chip info with the rfkill
+ * configuration removed. Software rfkill (wiphy soft state) is unaffected.
+ */
+static struct rtw89_chip_info rtw8851bu_chip_info = rtw8851b_chip_info;
+
 static const struct rtw89_driver_info rtw89_8851bu_info = {
-	.chip = &rtw8851b_chip_info,
+	.chip = &rtw8851bu_chip_info,
 	.variant = NULL,
 	.board = NULL,
 	.quirks = NULL,
@@ -75,7 +90,33 @@ static struct usb_driver rtw_8851bu_driver = {
 	.probe = rtw8851bu_probe,
 	.disconnect = rtw89_usb_disconnect,
 };
-module_usb_driver(rtw_8851bu_driver);
+
+static int __init rtw8851bu_module_init(void)
+{
+	int ret;
+
+	/* Disarm the chip's polled rfkill input (see rtw8851bu_chip_info
+	 * above) before any interface can probe.
+	 */
+	rtw8851bu_chip_info.rfkill_init = NULL;
+	memset(&rtw8851bu_chip_info.rfkill_get, 0,
+	       sizeof(rtW8851bu_chip_info.rfkill_get));
+
+	ret = usb_register(&rtw_8851bu_driver);
+	if (ret)
+		pr_err("rtw89_8851bu: usb_register failed (%pe)\n",
+		       ERR_PTR(ret));
+
+	return ret;
+}
+
+static void __exit rtw8851bu_module_exit(void)
+{
+	usb_deregister(&rtw_8851bu_driver);
+}
+
+module_init(rtw8851bu_module_init);
+module_exit(rtw8851bu_module_exit);
 
 MODULE_AUTHOR("Bitterblue Smith <rtl8821cerfe2@gmail.com>");
 MODULE_DESCRIPTION("Realtek 802.11ax wireless 8851BU driver");
