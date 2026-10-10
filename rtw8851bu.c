@@ -40,7 +40,7 @@ static const struct rtw89_usb_info rtw8851b_usb_info = {
  * adapters, so use a private copy of the 8851b chip info with the rfkill
  * configuration removed. Software rfkill (wiphy soft state) is unaffected.
  */
-static struct rtw89_chip_info rtw8851bu_chip_info = rtw8851b_chip_info;
+static struct rtw89_chip_info rtw8851bu_chip_info;
 
 static const struct rtw89_driver_info rtw89_8851bu_info = {
 	.chip = &rtw8851bu_chip_info,
@@ -95,12 +95,17 @@ static int __init rtw8851bu_module_init(void)
 {
 	int ret;
 
+	/* rtw8851b_chip_info is provided by the rtw89_8851b module, which
+	 * we depend on, so this is safe at module init time.
+	 */
+	rtw8851bu_chip_info = rtw8851b_chip_info;
+
 	/* Disarm the chip's polled rfkill input (see rtw8851bu_chip_info
 	 * above) before any interface can probe.
 	 */
 	rtw8851bu_chip_info.rfkill_init = NULL;
 	memset(&rtw8851bu_chip_info.rfkill_get, 0,
-	       sizeof(rtW8851bu_chip_info.rfkill_get));
+	       sizeof(rtw8851bu_chip_info.rfkill_get));
 
 	ret = usb_register(&rtw_8851bu_driver);
 	if (ret)
